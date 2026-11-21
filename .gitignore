@@ -1,0 +1,6 @@
+/herosiege-server
+/herosiege.db
+/.dump/
+*.db
+/coverage.out
+.env
