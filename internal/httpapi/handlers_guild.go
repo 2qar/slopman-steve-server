@@ -124,7 +124,7 @@ func (s *Server) handleGuildGetAllPlayers(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleGuildPlayerAdd(w http.ResponseWriter, r *http.Request) {
-	_, err := s.requireAccount(r.Context(), r)
+	caller, err := s.requireAccount(r.Context(), r)
 	if err != nil {
 		writeText(w, http.StatusOK, "0")
 		return
@@ -135,9 +135,66 @@ func (s *Server) handleGuildPlayerAdd(w http.ResponseWriter, r *http.Request) {
 	targetSlot := parseInt64(formValue(r, "target_slot"))
 	status := parseInt64(formValue(r, "status"))
 
-	if guildID == 0 || targetAccountID == 0 {
+	if guildID == 0 || targetAccountID == 0 || targetSlot == 0 {
 		writeText(w, http.StatusOK, "0")
 		return
+	}
+
+	callerStatus, member, err := s.guilds.HighestStatus(r.Context(), guildID, caller.ID)
+	if err != nil {
+		writeText(w, http.StatusOK, "0")
+		return
+	}
+	if !member {
+		writeText(w, http.StatusOK, "0")
+		return
+	}
+
+	switch status {
+	case 1:
+		// Only an owner may promote a member to owner.
+		if callerStatus != 1 {
+			writeText(w, http.StatusOK, "0")
+			return
+		}
+		isMember, err := s.guilds.IsMemberInSlot(r.Context(), guildID, targetAccountID, targetSlot)
+		if err != nil {
+			writeText(w, http.StatusOK, "0")
+			return
+		}
+		if !isMember {
+			writeText(w, http.StatusOK, "0")
+			return
+		}
+	case -1:
+		// Only an owner may remove members.
+		if callerStatus != 1 {
+			writeText(w, http.StatusOK, "0")
+			return
+		}
+	default:
+		// Status 0 is an invite or a self-join for another character slot.
+		if status != 0 {
+			writeText(w, http.StatusOK, "0")
+			return
+		}
+		if targetAccountID == caller.ID {
+			// Self-join is only valid if this account already belongs to the
+			// guild on another slot.
+			alreadyMember, err := s.guilds.IsMember(r.Context(), guildID, caller.ID)
+			if err != nil {
+				writeText(w, http.StatusOK, "0")
+				return
+			}
+			if !alreadyMember {
+				writeText(w, http.StatusOK, "0")
+				return
+			}
+		} else if callerStatus != 1 {
+			// Inviting another account requires owner status.
+			writeText(w, http.StatusOK, "0")
+			return
+		}
 	}
 
 	if status == -1 {

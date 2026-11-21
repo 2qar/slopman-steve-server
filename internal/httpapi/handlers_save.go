@@ -143,19 +143,10 @@ func (s *Server) handleSaveAccountData(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLoadProfileInventory(w http.ResponseWriter, r *http.Request) {
-	accountID := parseInt64(formValue(r, "account_id"))
-	slot := int(parseInt64(formValue(r, "slot")))
-
-	slotData, err := s.saves.LoadSlot(r.Context(), accountID, slot)
-	if err != nil || slotData.SlotData == "0" {
-		writeText(w, http.StatusOK, "0")
-		return
-	}
-	if slotData.InventoryData == "" {
-		writeText(w, http.StatusOK, "0")
-		return
-	}
-	writeText(w, http.StatusOK, slotData.InventoryData)
+	// The game does not send its session on this endpoint and does not parse
+	// the response body. Returning inventory data here would be an
+	// unauthenticated IDOR, so keep the endpoint as a no-op.
+	writeText(w, http.StatusOK, "0")
 }
 
 func (s *Server) handlePlayerUpdate(w http.ResponseWriter, r *http.Request) {

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"herosiege/internal/account"
 	"herosiege/internal/guild"
@@ -48,8 +49,18 @@ func main() {
 		Redeem:   redeemMgr,
 	})
 
+	httpServer := &http.Server{
+		Addr:              *addr,
+		Handler:           server.Handler(),
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+
 	log.Printf("hero siege backend listening on %s (db: %s)", *addr, *dbPath)
-	if err := http.ListenAndServe(*addr, server.Handler()); err != nil {
+	if err := httpServer.ListenAndServe(); err != nil {
 		log.Printf("http server: %v", err)
 		os.Exit(1)
 	}

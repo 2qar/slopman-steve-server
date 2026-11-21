@@ -213,6 +213,12 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	if want := "inv-data§relic-list§inv-list§stash-data"; body != want {
 		t.Fatalf("load_inventory_stash = %q, want %q", body, want)
 	}
+
+	// Profile inventory is not exposed without the caller's session.
+	body = a.get(t, "/load_profile_inventory.php?account_id="+accountID+"&slot=1")
+	if body != "0" {
+		t.Fatalf("load_profile_inventory leaked data: %q", body)
+	}
 }
 
 func TestAccountDataRoundTrip(t *testing.T) {
@@ -279,7 +285,6 @@ func TestGuildFlow(t *testing.T) {
 		"target_slot":       {"1"},
 	})
 
-	_ = memberIdent
 	body = a.post(t, "/guild_get_all_players.php", url.Values{
 		"guild_id":   {guildID},
 		"account_id": {ownerID},
@@ -288,6 +293,33 @@ func TestGuildFlow(t *testing.T) {
 	})
 	if !strings.HasPrefix(body, "2§") {
 		t.Fatalf("guild member list = %q, want 2 members", body)
+	}
+
+	// A non-owner must not be able to promote themselves or remove the owner.
+	body = a.post(t, "/guild_player_add.php", url.Values{
+		"account_id":        {memberID},
+		"identifier":        {memberIdent},
+		"slot":              {"1"},
+		"guild_id":          {guildID},
+		"status":            {"1"},
+		"target_account_id": {memberID},
+		"target_slot":       {"1"},
+	})
+	if body != "0" {
+		t.Fatalf("non-owner promotion should fail: %q", body)
+	}
+
+	body = a.post(t, "/guild_player_add.php", url.Values{
+		"account_id":        {memberID},
+		"identifier":        {memberIdent},
+		"slot":              {"1"},
+		"guild_id":          {guildID},
+		"status":            {"-1"},
+		"target_account_id": {ownerID},
+		"target_slot":       {"1"},
+	})
+	if body != "0" {
+		t.Fatalf("non-owner kick should fail: %q", body)
 	}
 }
 

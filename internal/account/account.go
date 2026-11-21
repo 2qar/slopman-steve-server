@@ -47,7 +47,7 @@ func NewManager(db *sql.DB) *Manager {
 // (an MD5 digest of the user's password).
 func (m *Manager) Register(ctx context.Context, username, passwordMD5, email, steamID string) (*Account, error) {
 	username = strings.TrimSpace(username)
-	if username == "" || passwordMD5 == "" {
+	if !validUsername(username) || passwordMD5 == "" {
 		return nil, ErrInvalidCredential
 	}
 
@@ -168,4 +168,16 @@ func newIdentifier() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(raw), nil
+}
+
+func validUsername(username string) bool {
+	if len(username) < 1 || len(username) > 24 {
+		return false
+	}
+	for _, r := range username {
+		if r < 0x20 || r > 0x7e || strings.ContainsRune("|§€£$@", r) {
+			return false
+		}
+	}
+	return true
 }

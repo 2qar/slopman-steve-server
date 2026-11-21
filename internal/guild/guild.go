@@ -156,6 +156,51 @@ func (m *Manager) Members(ctx context.Context, guildID, page int64) ([]Member, e
 	return members, nil
 }
 
+// IsMember reports whether accountID has any membership in guildID.
+func (m *Manager) IsMember(ctx context.Context, guildID, accountID int64) (bool, error) {
+	var one int
+	err := m.db.QueryRowContext(ctx, `
+		SELECT 1 FROM guild_members WHERE guild_id = ? AND account_id = ? LIMIT 1
+	`, guildID, accountID).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("query guild membership: %w", err)
+	}
+	return true, nil
+}
+
+// IsMemberInSlot reports whether accountID is a member of guildID on slot.
+func (m *Manager) IsMemberInSlot(ctx context.Context, guildID, accountID, slot int64) (bool, error) {
+	var one int
+	err := m.db.QueryRowContext(ctx, `
+		SELECT 1 FROM guild_members WHERE guild_id = ? AND account_id = ? AND slot = ? LIMIT 1
+	`, guildID, accountID, slot).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("query guild slot membership: %w", err)
+	}
+	return true, nil
+}
+
+// HighestStatus returns the highest membership status accountID has in guildID.
+func (m *Manager) HighestStatus(ctx context.Context, guildID, accountID int64) (int64, bool, error) {
+	var status sql.NullInt64
+	err := m.db.QueryRowContext(ctx, `
+		SELECT MAX(status) FROM guild_members WHERE guild_id = ? AND account_id = ?
+	`, guildID, accountID).Scan(&status)
+	if err != nil {
+		return 0, false, fmt.Errorf("query guild status: %w", err)
+	}
+	if !status.Valid {
+		return 0, false, nil
+	}
+	return status.Int64, true, nil
+}
+
 // SetMember inserts or updates a membership.
 func (m *Manager) SetMember(ctx context.Context, guildID, accountID, slot, status int64) error {
 	_, err := m.db.ExecContext(ctx, `

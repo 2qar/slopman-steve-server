@@ -15,6 +15,14 @@ func (s *Server) handleBan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAdminBan(w http.ResponseWriter, r *http.Request) {
-	_, _ = s.requireAccount(r.Context(), r)
+	acc, err := s.requireAccount(r.Context(), r)
+	if err != nil {
+		writeText(w, http.StatusOK, "0")
+		return
+	}
+	if !acc.Admin {
+		writeText(w, http.StatusOK, "0")
+		return
+	}
 	writeText(w, http.StatusOK, "1")
 }
